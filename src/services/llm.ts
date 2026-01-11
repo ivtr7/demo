@@ -5,10 +5,11 @@ interface ChatContext {
   userName: string;
   businessName: string;
   extraValue: string;
+  phone?: string;
   niche: NicheConfig;
 }
 
-async function callLovableAI(
+async function callAI(
   messages: { role: 'user' | 'assistant'; content: string }[],
   context: ChatContext
 ): Promise<string> {
@@ -25,6 +26,7 @@ async function callLovableAI(
         userName: context.userName,
         businessName: context.businessName,
         extraValue: context.extraValue,
+        phone: context.phone ?? '',
         extraFieldName: context.niche.onboarding.extraFieldName,
         restrictions: context.niche.restrictions,
         rules: context.niche.rules,
@@ -33,8 +35,8 @@ async function callLovableAI(
   });
 
   if (error) {
-    console.error('Lovable AI error:', error);
-    throw new Error(error.message || 'Erro ao chamar Lovable AI');
+    console.error('AI error:', error);
+    throw new Error(error.message || 'Erro ao chamar IA');
   }
 
   if (data?.error) {
@@ -48,14 +50,14 @@ export async function generateAgentReply(
   userMessage: string,
   chatHistory: { role: 'user' | 'assistant'; content: string }[],
   context: ChatContext
-): Promise<{ response: string; source: 'lovable-ai' | 'error' }> {
+): Promise<{ response: string; source: 'ai' | 'error' }> {
   const fullHistory = [...chatHistory, { role: 'user' as const, content: userMessage }];
 
   try {
-    const response = await callLovableAI(fullHistory, context);
-    return { response, source: 'lovable-ai' };
+    const response = await callAI(fullHistory, context);
+    return { response, source: 'ai' };
   } catch (error) {
-    console.error('Lovable AI also failed:', error);
+    console.error('AI also failed:', error);
     return { 
       response: "Desculpe, estou com dificuldades técnicas no momento. Por favor, tente novamente em alguns instantes.", 
       source: 'error' 

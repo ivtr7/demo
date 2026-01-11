@@ -19,6 +19,7 @@ interface ChatRequest {
     userName: string;
     businessName: string;
     extraValue: string;
+    phone?: string;
     extraFieldName: string;
     restrictions?: string;
     rules: {
@@ -32,12 +33,18 @@ interface ChatRequest {
 
 function buildSystemPrompt(request: ChatRequest): string {
   const { systemPrompt, nicheContext } = request;
-  const { userName, businessName, extraValue, extraFieldName, restrictions, rules } = nicheContext;
+  const { userName, businessName, extraValue, extraFieldName, restrictions, rules, phone } = nicheContext;
   
+  const nicheLower = nicheContext.nicheName.toLowerCase();
+  const isHealthDomain = /m[eé]dico|odonto|est[eé]tica|fitness|academia|nutri|sa[uú]de|fisi/i.test(nicheLower);
+  const isLegalDomain = /advog|jur[ií]dic|direito|escrit[oó]rio/i.test(nicheLower);
+  const isFinanceDomain = /cont[aá]b|finance|imposto|fiscal|invest|banco/i.test(nicheLower);
+
   let prompt = systemPrompt + '\n\n';
   
   prompt += '=== CONTEXTO DO ATENDIMENTO ===\n';
   if (userName) prompt += `- Nome do cliente: ${userName}\n`;
+  if (phone) prompt += `- Telefone do cliente: ${phone}\n`;
   if (businessName) prompt += `- Nome do negócio: ${businessName}\n`;
   if (extraValue) prompt += `- ${extraFieldName}: ${extraValue}\n`;
   prompt += '\n';
@@ -46,15 +53,11 @@ function buildSystemPrompt(request: ChatRequest): string {
   if (rules.useVariables) {
     prompt += '- SEMPRE use o nome do cliente e do negócio nas respostas quando fizer sentido.\n';
   }
-  if (rules.oneQuestionAtTime) {
-    prompt += '- Faça apenas UMA pergunta por vez.\n';
-  }
+  prompt += '- Faça apenas UMA pergunta por vez.\n';
   if (rules.suggestNextSteps) {
     prompt += '- Sempre sugira o próximo passo (agendar, conhecer, tirar dúvida).\n';
   }
-  if (rules.keepResponsesShort) {
-    prompt += '- Mantenha as respostas curtas e objetivas (máximo 3-4 frases).\n';
-  }
+  prompt += '- Responda de forma curta e objetiva.\n';
   
   if (restrictions) {
     prompt += `\n=== RESTRIÇÕES ===\n${restrictions}\n`;
@@ -65,6 +68,31 @@ function buildSystemPrompt(request: ChatRequest): string {
   prompt += '- Este é um ambiente de demonstração. Simule agendamentos e anotações.\n';
   prompt += '- Seja sempre empático e profissional.\n';
   prompt += '- Responda em português brasileiro.\n';
+  prompt += '\n=== FORMATO (OBRIGATÓRIO) ===\n';
+  prompt += '- Responda em no máximo 3 linhas curtas OU até 3 bullets.\n';
+  prompt += '- Sem introduções longas, sem explicações extensas.\n';
+  prompt += '- Seja assertivo: dê uma recomendação prática e direta.\n';
+  prompt += '- Termine com UMA pergunta curta para personalizar.\n';
+  prompt += '\n=== PARA DÚVIDAS / RECOMENDAÇÕES ===\n';
+  prompt += '- Se o usuário pedir "o melhor", "como fazer", "o que recomenda":\n';
+  prompt += '  1) dê a resposta direta;\n';
+  prompt += '  2) liste 2-3 opções práticas;\n';
+  prompt += '  3) finalize com UMA pergunta.\n';
+
+  if (isHealthDomain) {
+    prompt += '\n=== SEGURANÇA (SAÚDE) ===\n';
+    prompt += '- Dê orientações gerais. Se houver dor forte, piora, febre, formigamento ou trauma: recomende avaliação profissional.\n';
+  }
+
+  if (isLegalDomain) {
+    prompt += '\n=== SEGURANÇA (JURÍDICO) ===\n';
+    prompt += '- Explique de forma geral e sugira verificar documentos/prazos. Não afirme certeza sem contexto.\n';
+  }
+
+  if (isFinanceDomain) {
+    prompt += '\n=== SEGURANÇA (FINANCEIRO) ===\n';
+    prompt += '- Oriente de forma geral e sugira conferir valores/contratos. Evite prometer resultados.\n';
+  }
   
   return prompt;
 }
@@ -77,10 +105,11 @@ serve(async (req) => {
 
   try {
     const requestData: ChatRequest = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const aiGatewayApiKey = Deno.env.get("AI_GATEWAY_API_KEY");
+    const aiGatewayUrl = Deno.env.get("AI_GATEWAY_URL");
     
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
+    if (!aiGatewayApiKey || !aiGatewayUrl) {
+      console.error("AI gateway API key is not configured");
       return new Response(JSON.stringify({ 
         error: "Serviço de IA não configurado",
         response: "Desculpe, estou com dificuldades técnicas. Tente novamente em alguns instantes."
@@ -102,12 +131,12 @@ serve(async (req) => {
       }))
     ];
 
-    console.log("Calling Lovable AI Gateway...");
+    console.log("Calling AI gateway...");
     
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(`${aiGatewayUrl.replace(/\/$/, '')}/v1/chat/completions`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${aiGatewayApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -133,7 +162,7 @@ serve(async (req) => {
       if (response.status === 402) {
         return new Response(JSON.stringify({ 
           error: "Créditos esgotados.",
-          response: "O serviço de IA está temporariamente indisponível. Configure uma API Key do Gemini no Admin para continuar."
+          response: "O serviço de IA está temporariamente indisponível. Tente novamente em alguns instantes."
         }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -156,7 +185,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       response: aiResponse,
-      source: 'lovable-ai'
+      source: 'ai'
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

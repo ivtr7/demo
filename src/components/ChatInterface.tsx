@@ -26,7 +26,7 @@ export default function ChatInterface({ onBack, onOpenSettings }: ChatInterfaceP
   } = useApp();
 
   const [input, setInput] = useState('');
-  const [aiSource, setAiSource] = useState<'lovable-ai' | 'error' | null>(null);
+  const [aiSource, setAiSource] = useState<'ai' | 'error' | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
@@ -62,37 +62,48 @@ export default function ChatInterface({ onBack, onOpenSettings }: ChatInterfaceP
     const typingDelay = 800 + Math.random() * 500;
     let cancelled = false;
 
-    setTimeout(async () => {
+    setTimeout(() => {
       if (cancelled) return;
 
-      try {
-        const result = await generateAgentReply(
-          `Inicie o atendimento agora. Apresente-se como ${currentNiche.agentName} e faça uma saudação curta. Em seguida, faça apenas UMA pergunta para entender o que a pessoa precisa.`,
-          [],
-          {
-            userName: '',
-            businessName: '',
-            extraValue: '',
-            niche: currentNiche,
-          }
-        );
-
-        if (cancelled) return;
-        addMessage({ role: 'assistant', content: result.response });
-        setAiSource(result.source);
-      } catch (error) {
-        if (cancelled) return;
-        addMessage({ role: 'assistant', content: 'Desculpe, estou com dificuldades técnicas. Tente novamente.' });
-        setAiSource('error');
-      } finally {
-        if (!cancelled) setChatState(prev => ({ ...prev, isTyping: false }));
-      }
+      const greeting = `Olá! Eu sou ${currentNiche.agentName}. Qual é o seu nome?`;
+      addMessage({ role: 'assistant', content: greeting });
+      setAiSource(null);
+      setChatState(prev => ({
+        ...prev,
+        isTyping: false,
+        onboarding: { ...prev.onboarding, step: 'collect_name' },
+      }));
     }, typingDelay);
 
     return () => {
       cancelled = true;
     };
   }, [currentNiche?.id, chatState.messages.length]);
+
+  const isNameSkipMessage = (message: string): boolean => {
+    const text = message.trim().toLowerCase();
+    if (!text) return true;
+    const patterns = [
+      /^pular$/i,
+      /^prefiro não$/i,
+      /^prefiro nao$/i,
+      /não\s+quero\s+informar/i,
+      /nao\s+quero\s+informar/i,
+      /não\s+vou\s+informar/i,
+      /nao\s+vou\s+informar/i,
+      /sem\s+nome/i,
+      /an[oô]nimo/i,
+    ];
+    return patterns.some(p => p.test(text));
+  };
+
+  const normalizePhone = (message: string): string => {
+    const digits = message.replace(/\D/g, '');
+    if (!digits) return '';
+    if (digits.length < 8) return '';
+    if (digits.length > 13) return digits.slice(0, 13);
+    return digits;
+  };
 
   const handleSend = async () => {
     if (!input.trim() || !currentNiche || chatState.isTyping) return;
@@ -108,10 +119,56 @@ export default function ChatInterface({ onBack, onOpenSettings }: ChatInterfaceP
     setTimeout(async () => {
       // Get the LATEST state via ref
       const currentState = chatStateRef.current;
-      const { messages } = currentState;
+      const { messages, onboarding } = currentState;
       
       let response = '';
-      let source: 'lovable-ai' | 'error' | null = null;
+      let source: 'ai' | 'error' | null = null;
+
+      if (onboarding.step !== 'complete') {
+        if (onboarding.step === 'collect_name') {
+          if (isNameSkipMessage(userMessage)) {
+            setChatState(prev => ({
+              ...prev,
+              onboarding: { ...prev.onboarding, userName: '', step: 'complete' },
+            }));
+            response = 'Sem problemas. Como posso te ajudar hoje?';
+          } else {
+            const userName = userMessage;
+            setChatState(prev => ({
+              ...prev,
+              onboarding: { ...prev.onboarding, userName, step: 'collect_phone' },
+            }));
+            response = `Perfeito, ${userName}! Se quiser, pode me passar um telefone para confirmação (opcional). Se preferir, diga "pular".`;
+          }
+
+          addMessage({ role: 'assistant', content: response });
+          setChatState(prev => ({ ...prev, isTyping: false }));
+          return;
+        }
+
+        if (onboarding.step === 'collect_phone') {
+          if (isNameSkipMessage(userMessage)) {
+            setChatState(prev => ({
+              ...prev,
+              onboarding: { ...prev.onboarding, phone: '', step: 'complete' },
+            }));
+            response = 'Beleza! Como posso te ajudar hoje?';
+          } else {
+            const phone = normalizePhone(userMessage);
+            setChatState(prev => ({
+              ...prev,
+              onboarding: { ...prev.onboarding, phone, step: 'complete' },
+            }));
+            response = phone
+              ? 'Perfeito! Como posso te ajudar hoje?'
+              : 'Sem problemas. Se quiser depois, me mande seu telefone (opcional). Como posso te ajudar hoje?';
+          }
+
+          addMessage({ role: 'assistant', content: response });
+          setChatState(prev => ({ ...prev, isTyping: false }));
+          return;
+        }
+      }
 
       try {
         const history = messages.map(m => ({ role: m.role, content: m.content }));
@@ -121,9 +178,10 @@ export default function ChatInterface({ onBack, onOpenSettings }: ChatInterfaceP
             : history;
 
         const result = await generateAgentReply(userMessage, historyWithoutCurrentUserMessage, {
-          userName: '',
+          userName: onboarding.userName,
           businessName: '',
           extraValue: '',
+          phone: onboarding.phone,
           niche: currentNiche,
         });
 
@@ -158,8 +216,7 @@ export default function ChatInterface({ onBack, onOpenSettings }: ChatInterfaceP
     content += `Agente: ${currentNiche?.agentName}\n`;
     content += `\n=== Dados Coletados ===\n`;
     content += `Nome: ${onboarding.userName}\n`;
-    content += `Empresa: ${onboarding.businessName}\n`;
-    content += `${currentNiche?.onboarding.extraFieldName}: ${onboarding.extraValue}\n`;
+    content += `Telefone: ${onboarding.phone}\n`;
     content += `\n=== Histórico ===\n\n`;
     
     messages.forEach(msg => {
@@ -288,7 +345,7 @@ export default function ChatInterface({ onBack, onOpenSettings }: ChatInterfaceP
             </div>
             {aiSource && (
               <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                {aiSource === 'lovable-ai' ? (
+                {aiSource === 'ai' ? (
                   <>
                     <Sparkles className="h-3 w-3" />
                     IA

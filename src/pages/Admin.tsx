@@ -277,7 +277,7 @@ function NicheEditor({
                 <Label>Tom de Voz</Label>
                 <Select
                   value={niche.tone}
-                  onValueChange={(value: any) => onUpdate({ tone: value })}
+                  onValueChange={(value) => onUpdate({ tone: value as typeof niche.tone })}
                 >
                   <SelectTrigger className="bg-secondary/50">
                     <SelectValue />

@@ -1,4 +1,5 @@
 import { Stethoscope, Smile, Scale, ShoppingCart, Sparkles, Heart, Home, Shield, Calculator, Sun, Dumbbell, Car, Activity, Scissors } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 export interface NicheIntent {
   id: string;
@@ -42,7 +43,7 @@ export interface NicheConfig {
   restrictions: string;
 }
 
-export const ICON_MAP: Record<string, any> = {
+export const ICON_MAP: Record<string, LucideIcon> = {
   Stethoscope,
   Smile,
   Scale,

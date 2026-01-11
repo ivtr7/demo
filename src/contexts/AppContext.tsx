@@ -24,10 +24,9 @@ export interface ChatMessage {
 }
 
 export interface OnboardingState {
-  step: 'greeting' | 'name' | 'business' | 'extra' | 'complete';
+  step: 'collect_name' | 'collect_phone' | 'complete';
   userName: string;
-  businessName: string;
-  extraValue: string;
+  phone: string;
 }
 
 export interface ChatState {
@@ -78,7 +77,7 @@ interface AppContextType {
 }
 
 const defaultGlobalConfig: GlobalConfig = {
-  appName: 'Demo de Agentes de IA',
+  appName: 'ICARO',
   defaultTheme: 'dark',
   geminiModel: 'gemini-2.0-flash',
   temperature: 0.7,
@@ -90,10 +89,9 @@ const defaultGlobalConfig: GlobalConfig = {
 const defaultChatState: ChatState = {
   messages: [],
   onboarding: {
-    step: 'greeting',
+    step: 'collect_name',
     userName: '',
-    businessName: '',
-    extraValue: '',
+    phone: '',
   },
   isTyping: false,
 };
@@ -125,14 +123,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const parsed = JSON.parse(savedConfig) as GlobalConfig;
         const geminiModel = typeof parsed?.geminiModel === 'string' ? parsed.geminiModel.replace(/^models\//i, '') : defaultGlobalConfig.geminiModel;
         setGlobalConfig({ ...parsed, geminiModel });
-      } catch {}
+      } catch (error) {
+        void error;
+      }
     }
 
     const savedNiches = localStorage.getItem('ai-agent-niches');
     if (savedNiches) {
       try {
         setNiches(JSON.parse(savedNiches));
-      } catch {}
+      } catch (error) {
+        void error;
+      }
     }
 
     const savedApiKey = localStorage.getItem('ai-agent-api-key');
@@ -147,7 +149,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (session.expiresAt && session.expiresAt > Date.now()) {
           setAdminSession(session);
         }
-      } catch {}
+      } catch (error) {
+        void error;
+      }
     }
 
     const savedNicheId = localStorage.getItem('ai-agent-current-niche');
