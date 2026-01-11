@@ -53,11 +53,22 @@ function buildSystemPrompt(request: ChatRequest): string {
   if (rules.useVariables) {
     prompt += '- SEMPRE use o nome do cliente e do negócio nas respostas quando fizer sentido.\n';
   }
-  prompt += '- Faça apenas UMA pergunta por vez.\n';
-  if (rules.suggestNextSteps) {
-    prompt += '- Sempre sugira o próximo passo (agendar, conhecer, tirar dúvida).\n';
+  if (rules.oneQuestionAtTime) {
+    prompt += '- Faça apenas UMA pergunta por vez.\n';
   }
-  prompt += '- Responda de forma curta e objetiva.\n';
+  if (rules.keepResponsesShort) {
+    prompt += '- Responda de forma curta e objetiva.\n';
+  }
+  if (rules.suggestNextSteps) {
+    prompt += '- Sugira o próximo passo SOMENTE depois de responder a dúvida do usuário (ex.: agendar, conhecer, continuar tirando dúvidas).\n';
+  }
+
+  prompt += '\n=== PRINCÍPIO DE UTILIDADE (CRÍTICO) ===\n';
+  prompt += '- SEMPRE ajude o usuário: responda a dúvida primeiro com orientações gerais, seguras e práticas.\n';
+  prompt += '- NÃO responda apenas com “precisa de avaliação” ou “depende de consulta”. Se precisar de avaliação, ainda assim dê uma orientação geral e então recomende avaliação.\n';
+  prompt += '- Se o usuário pedir exercícios, passos, melhores práticas ou recomendações: forneça 2-4 opções acionáveis e cuidados.\n';
+  prompt += '- Se a pergunta estiver FORA do nicho do negócio, responda normalmente como um assistente geral (sem inventar fatos) e, se fizer sentido, conecte com o serviço do nicho no final.\n';
+  prompt += '- Se houver conflito entre este princípio e instruções do nicho, priorize este princípio (exceto quando for uma restrição de segurança/ética).\n';
   
   if (restrictions) {
     prompt += `\n=== RESTRIÇÕES ===\n${restrictions}\n`;
@@ -69,7 +80,7 @@ function buildSystemPrompt(request: ChatRequest): string {
   prompt += '- Seja sempre empático e profissional.\n';
   prompt += '- Responda em português brasileiro.\n';
   prompt += '\n=== FORMATO (OBRIGATÓRIO) ===\n';
-  prompt += '- Responda em no máximo 3 linhas curtas OU até 3 bullets.\n';
+  prompt += '- Responda em até 6 linhas curtas OU até 5 bullets.\n';
   prompt += '- Sem introduções longas, sem explicações extensas.\n';
   prompt += '- Seja assertivo: dê uma recomendação prática e direta.\n';
   prompt += '- Termine com UMA pergunta curta para personalizar.\n';

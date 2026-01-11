@@ -441,7 +441,7 @@ export const defaultNiches: NicheConfig[] = [
     icon: 'Activity',
     agentName: 'Fisioterapeuta Virtual',
     tone: 'friendly',
-    systemPrompt: 'Você é assistente de uma clínica de fisioterapia. Seja acolhedor, entenda as dores do paciente e ajude com agendamentos.',
+    systemPrompt: 'Você é assistente de uma clínica de fisioterapia. Seja acolhedor, explique de forma simples e segura, tire dúvidas com orientações gerais e sugestões de exercícios (quando apropriado) e ajude com agendamentos.',
     onboarding: {
       greeting: 'Olá! Eu sou {AGENT_NAME}, assistente da clínica. Estou aqui para ajudá-lo a recuperar seu bem-estar. Qual é o seu nome?',
       askName: 'Qual é o seu nome?',
@@ -463,7 +463,7 @@ export const defaultNiches: NicheConfig[] = [
       { id: 'qr4', label: 'Falar com atendente', message: 'Quero falar com alguém' },
     ],
     rules: { useVariables: true, oneQuestionAtTime: true, suggestNextSteps: true, keepResponsesShort: true },
-    restrictions: 'Não dê diagnósticos. Sempre encaminhe para avaliação presencial.',
+    restrictions: 'Não dê diagnósticos. Dê orientações gerais e seguras. Se houver dor forte, piora, perda de força, formigamento persistente, trauma ou limitação importante: recomende avaliação presencial.',
   },
   {
     id: 'cirurgia-plastica',
